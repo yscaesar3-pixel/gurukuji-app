@@ -1,0 +1,17 @@
+{
+  "name": "ぐるくじ ― 多重ルーレット",
+  "short_name": "ぐるくじ",
+  "description": "何重にもできるカスタム多重ルーレット。行き先決め、順番決め、罰ゲームなど何でも使えます。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15122A",
+  "theme_color": "#15122A",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

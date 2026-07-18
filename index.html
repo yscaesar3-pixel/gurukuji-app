@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ぐるくじ ― 多重ルーレット</title>
+<meta name="description" content="何重にもできるカスタム多重ルーレット。行き先決め、順番決め、罰ゲームなど何でも使えます。" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#15122A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="ぐるくじ" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="./icons/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Antique+B1&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15122A;
+    --bg-glow: radial-gradient(circle at 50% 22%, #2A2350 0%, #15122A 62%);
+    --panel:#221D3D;
+    --panel-alt:#2B2450;
+    --line: rgba(245,239,224,0.12);
+    --ink:#F5EFE0;
+    --muted:#A79FC7;
+    --amber:#F2A93B;
+    --red:#D8432E;
+    --radius-lg:20px;
+    --radius-md:12px;
+    --ad-space: 64px; /* ネイティブのバナー広告が下部に表示されてもコンテンツと重ならないための余白 */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body.has-native-banner{ padding-bottom:52px; }
+  body{
+    background:var(--bg-glow);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+    flex:none;
+  }
+  .brand{ display:flex; align-items:baseline; gap:8px; }
+  .brand h1{
+    font-family:'Shippori Antique B1', sans-serif;
+    font-size:22px;
+    margin:0;
+    letter-spacing:.06em;
+    color:var(--amber);
+    text-shadow:0 0 14px rgba(242,169,59,.3);
+  }
+  .brand span{ font-size:11px; color:var(--muted); letter-spacing:.05em; }
+  .nav{ display:flex; gap:8px; }
+  .nav-btn{
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--panel-alt);
+    color:var(--muted);
+    font-size:13px;
+    cursor:pointer;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+  }
+  .nav-btn.active{ background:var(--amber); border-color:var(--amber); color:#1B1730; font-weight:700; }
+
+  .page{ flex:1; display:none; padding:16px; overflow-y:auto; }
+  .page.active{ display:flex; flex-direction:column; }
+
+  /* ---------- PLAY PAGE ---------- */
+  #playPage{ align-items:center; }
+  .play-wrap{ width:100%; max-width:820px; display:flex; flex-direction:column; gap:14px; flex:1; }
+  .wheel-row{ display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; }
+  .wheel-col{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg);
+    padding:12px; flex:1; min-width:280px; max-width:440px; display:flex; justify-content:center;
+  }
+  #wheelSvg{ width:100%; height:auto; touch-action:manipulation; }
+
+  .side-controls{ display:flex; flex-direction:column; gap:8px; width:190px; flex:none; }
+  .ring-btn{
+    display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius-md); padding:9px 10px; cursor:pointer; text-align:left;
+  }
+  .ring-btn .swatch{ width:12px;height:12px;border-radius:50%;flex:none; box-shadow:0 0 0 2px rgba(0,0,0,.25) inset;}
+  .ring-btn .rb-info{ flex:1; min-width:0; }
+  .ring-btn .rb-label{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ring-btn .rb-status{ font-size:10.5px; color:var(--muted); }
+  .ring-btn .rb-icon{
+    width:26px;height:26px;border-radius:50%; display:flex;align-items:center;justify-content:center;
+    background:var(--amber); color:#1B1730; font-size:11px; flex:none;
+  }
+  .ring-btn.spinning .rb-icon{ background:var(--red); color:#fff; }
+  .ring-btn.spinning{ border-color:var(--red); }
+
+  .ring-seg text{
+    fill:#1B1730; font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700;
+    paint-order:stroke fill; stroke:rgba(255,255,255,.4); stroke-width:2.5px; pointer-events:none;
+  }
+  .hub{ cursor:pointer; }
+  .hub circle{
+    fill:var(--amber); stroke:#1B1730; stroke-width:3;
+    filter:drop-shadow(0 4px 10px rgba(0,0,0,.4)); transition:fill .2s;
+  }
+  .hub.spinning circle{ fill:var(--red); }
+  .hub.inert circle{ fill:#4A4370; }
+  .hub text{
+    fill:#1B1730; font-family:'Shippori Antique B1', sans-serif;
+    font-size:24px; text-anchor:middle; dominant-baseline:middle; pointer-events:none;
+  }
+  .hub.inert text{ fill:#DCD6EE; font-size:15px; }
+  .pointer{ fill:var(--red); stroke:#1B1730; stroke-width:2; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+
+  .hint{ text-align:center; color:var(--muted); font-size:12px; }
+  .hint b{ color:var(--ink); }
+
+  .results-strip{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:12px 14px; }
+  .results-strip h2{
+    margin:0 0 8px; font-size:12.5px; letter-spacing:.08em; color:var(--amber);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .results-strip h2 button{ border:none; background:transparent; color:var(--muted); font-size:11px; cursor:pointer; letter-spacing:0; }
+  .results-strip h2 button:hover{ color:var(--red); }
+  .omikuji-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .omikuji{
+    flex:1 1 140px; display:flex; align-items:center; gap:8px;
+    background:linear-gradient(180deg,#2B2450,#241D46); border:1px solid var(--line); border-left:4px solid var(--amber);
+    border-radius:10px; padding:8px 10px; animation:slideIn .35s ease;
+  }
+  @keyframes slideIn{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+  .omikuji .oring{ font-size:10.5px; color:var(--muted); white-space:nowrap; }
+  .omikuji .oitem{ font-family:'Shippori Antique B1', sans-serif; font-size:15px; line-height:1.2; }
+  .empty-note{ color:var(--muted); font-size:12.5px; padding:2px; }
+  .footnote{ text-align:center; color:var(--muted); font-size:11px; margin-top:auto; padding-top:10px; }
+
+  /* ---------- SETTINGS PAGE ---------- */
+  #settingsPage{ align-items:center; }
+  .settings-wrap{ width:100%; max-width:680px; display:flex; flex-direction:column; gap:16px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 16px 18px; }
+  .card h2{ margin:0 0 12px; font-size:14px; letter-spacing:.08em; color:var(--amber); }
+  .seg-label{ font-size:11px; color:var(--muted); letter-spacing:.05em; margin:10px 0 6px; }
+  .seg-label:first-child{ margin-top:0; }
+  .radio-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:2px; }
+  .chip{
+    flex:1; min-width:90px; text-align:center; padding:7px 6px; border-radius:999px;
+    border:1px solid var(--line); background:var(--panel-alt); color:var(--muted);
+    font-size:12px; cursor:pointer; user-select:none; transition:all .15s;
+  }
+  .chip.active{ background:var(--amber); border-color:var(--amber); color:#1B1730; font-weight:700; }
+  .chip.disabled{ opacity:.35; pointer-events:none; }
+  .chip.warn.active{ background:var(--red); border-color:var(--red); color:#fff; }
+
+  .ring-row{ background:var(--panel-alt); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px; margin-bottom:10px; }
+  .ring-row-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .swatch{ width:14px;height:14px;border-radius:50%;flex:none; box-shadow:0 0 0 2px rgba(0,0,0,.25) inset; }
+  .ring-name{
+    flex:1; background:transparent; border:none; border-bottom:1px solid var(--line);
+    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700; font-size:14px; padding:4px 2px;
+  }
+  .ring-name:focus{ outline:none; border-bottom-color:var(--amber); }
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--muted); width:28px;height:28px; border-radius:8px;
+    cursor:pointer; font-size:13px; display:flex;align-items:center;justify-content:center; flex:none;
+  }
+  .icon-btn:hover{ border-color:var(--amber); color:var(--amber); }
+  .items-list{ display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .item-row{ display:flex; gap:6px; align-items:center; }
+  .item-row input[type=text]{
+    flex:1; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-size:13px; padding:7px 9px; min-width:0;
+  }
+  .item-row input[type=text]:focus{ outline:none; border-color:var(--amber); }
+  .item-row input[type=number]{
+    width:52px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:12px; padding:6px 4px; text-align:center; flex:none;
+  }
+  .item-row label.chk{ display:flex; align-items:center; gap:3px; font-size:10.5px; color:var(--muted); flex:none; white-space:nowrap; }
+  .row-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px;}
+  .small-btn{
+    border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:8px;
+    padding:6px 10px; font-size:12px; cursor:pointer;
+  }
+  .small-btn:hover{ border-color:var(--amber); color:var(--amber); }
+  .add-ring-btn{
+    width:100%; padding:10px; border-radius:var(--radius-md); border:1px dashed var(--line);
+    background:transparent; color:var(--muted); cursor:pointer; font-size:13px;
+  }
+  .add-ring-btn:hover{ border-color:var(--amber); color:var(--amber); }
+  .add-ring-btn:disabled{ opacity:.3; cursor:not-allowed; }
+
+  .force-select{
+    width:100%; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:12.5px; padding:7px 8px; margin-top:2px;
+  }
+  .force-select.armed{ border-color:var(--red); color:var(--red); }
+  .force-note{ font-size:10.5px; color:var(--muted); margin-top:4px; }
+
+  .preset-row{
+    display:flex; align-items:center; gap:8px; background:var(--panel-alt); border:1px solid var(--line);
+    border-radius:10px; padding:8px 10px; margin-bottom:8px;
+  }
+  .preset-row .pname{ flex:1; font-size:13px; font-weight:700; }
+  .save-row{ display:flex; gap:8px; margin-top:4px; }
+  .save-row input{
+    flex:1; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:13px; padding:8px 10px;
+  }
+  .io-row{ display:flex; gap:8px; margin-top:10px; }
+  .io-row .small-btn{ flex:1; text-align:center; }
+  #importFileInput{ display:none; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:#1B1730; color:var(--ink); border:1px solid var(--amber); border-radius:10px;
+    padding:10px 16px; font-size:13px; box-shadow:0 6px 18px rgba(0,0,0,.4);
+    opacity:0; pointer-events:none; transition:all .25s; z-index:200; max-width:90vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,8,20,.6); display:none;
+    align-items:center; justify-content:center; z-index:300; padding:20px;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg);
+    padding:20px; max-width:340px; width:100%;
+  }
+  .modal-box p{ margin:0 0 16px; font-size:13.5px; line-height:1.6; color:var(--ink); }
+  .modal-actions{ display:flex; gap:8px; }
+  .modal-actions button{
+    flex:1; padding:10px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel-alt); color:var(--muted); font-size:13px; cursor:pointer;
+  }
+  .modal-actions button.confirm{ background:var(--amber); border-color:var(--amber); color:#1B1730; font-weight:700; }
+
+  @media (max-width:640px){
+    .side-controls{ width:100%; flex-direction:row; flex-wrap:wrap; }
+    .ring-btn{ flex:1 1 45%; }
+  }
+</style>
+</head>
+<body>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {
+        /* オフライン非対応でもアプリ自体は問題なく動作します */
+      });
+    });
+  }
+</script>
+
+<div class="topbar">
+  <div class="brand"><h1>ぐるくじ</h1><span>多重ルーレット</span></div>
+  <div class="nav">
+    <button class="nav-btn" id="muteBtn" title="効果音のオン/オフ">🔊</button>
+    <button class="nav-btn" data-page="play">ルーレット</button>
+    <button class="nav-btn" data-page="settings">⚙ 設定</button>
+  </div>
+</div>
+
+<div class="page" id="playPage">
+  <div class="play-wrap">
+    <div class="wheel-row">
+      <div class="wheel-col"><svg id="wheelSvg" viewBox="0 0 600 660"></svg></div>
+      <div class="side-controls" id="sideControls"></div>
+    </div>
+    <div class="hint" id="stageHint"></div>
+    <div class="results-strip">
+      <h2>結果 <button id="clearResultsBtn">クリア</button></h2>
+      <div class="omikuji-grid" id="resultsList"></div>
+    </div>
+    <div class="footnote">🎯 何重にも重ねて、運命の一周を回そう</div>
+  </div>
+</div>
+
+<div class="page" id="settingsPage">
+  <div class="settings-wrap">
+    <div class="card">
+      <h2>回転設定</h2>
+      <p class="seg-label">回し方</p>
+      <div class="radio-row" id="modeChips">
+        <div class="chip" data-mode="group">セットで回す</div>
+        <div class="chip" data-mode="independent">個別に回す</div>
+      </div>
+      <p class="seg-label">ストップ順（セットで回す場合）</p>
+      <div class="radio-row" id="orderChips">
+        <div class="chip" data-order="simultaneous">同時に止める</div>
+        <div class="chip" data-order="inside-out">内側から順に</div>
+        <div class="chip" data-order="outside-in">外側から順に</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;">
+        リング設定（内側 → 外側）
+        <button class="small-btn" id="resetAllBtn" style="font-weight:400;letter-spacing:0;">🔄 名前・項目をクリア</button>
+      </h2>
+      <p class="force-note">各項目の数値は当たりやすさ（重み）。「強制当選」で項目を指定すると、そのリングは毎回必ずその項目に固定されます。</p>
+      <div id="ringsList"></div>
+      <button class="add-ring-btn" id="addRingBtn">＋ リングを追加</button>
+    </div>
+
+    <div class="card">
+      <h2>プリセット</h2>
+      <div id="presetList"></div>
+      <div class="save-row">
+        <input type="text" id="presetNameInput" placeholder="プリセット名（例：ランチ決め）" />
+        <button class="small-btn" id="savePresetBtn">保存</button>
+      </div>
+      <div class="io-row">
+        <button class="small-btn" id="exportBtn">📤 書き出し(.json)</button>
+        <button class="small-btn" id="importBtn">📥 読み込み(.json)</button>
+      </div>
+      <input type="file" id="importFileInput" accept="application/json" />
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button id="modalCancel">いいえ</button>
+      <button class="confirm" id="modalConfirm">はい</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- ad monetization hooks ----------
+  // 実際の広告表示には Capacitor + @capacitor-community/admob の導入が必要です。
+  // ブラウザ/PWAではネイティブ判定が false になるため、広告コードは一切実行されません。
+  // ネイティブ化の手順は README.md を参照してください。
+  const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  const AdManager = (function(){
+    let ringStopCount = 0;
+    const INTERSTITIAL_EVERY_N_STOPS = 6; // 目安：フルスピン2回に1回程度
+    async function init(){
+      if(!isNativeApp()) return;
+      try{
+        // --- ここから実装例（プラグイン導入後にコメントを外してください） ---
+        // const { AdMob } = await import('@capacitor-community/admob');
+        // await AdMob.initialize({ requestTrackingAuthorization: true, testingDevices: [], initializeForTesting: false });
+        // await showBanner();
+        // -----------------------------------------------------------
+      }catch(e){ console.warn('[AdManager] init skipped:', e); }
+    }
+    async function showBanner(){
+      if(!isNativeApp()) return;
+      document.body.classList.add('has-native-banner');
+      try{
+        // const { AdMob, BannerAdPosition, BannerAdSize } = await import('@capacitor-community/admob');
+        // await AdMob.showBanner({
+        //   adId: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // ご自身のバナー広告ユニットIDに置き換え
+        //   adSize: BannerAdSize.ADAPTIVE_BANNER,
+        //   position: BannerAdPosition.BOTTOM_CENTER,
+        // });
+      }catch(e){ console.warn('[AdManager] banner skipped:', e); }
+    }
+    async function notifyRingStopped(){
+      if(!isNativeApp()) return;
+      ringStopCount++;
+      if(ringStopCount % INTERSTITIAL_EVERY_N_STOPS === 0){
+        try{
+          // const { AdMob } = await import('@capacitor-community/admob');
+          // await AdMob.prepareInterstitial({ adId: 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ' });
+          // await AdMob.showInterstitial();
+        }catch(e){ console.warn('[AdManager] interstitial skipped:', e); }
+      }
+    }
+    return { init, showBanner, notifyRingStopped };
+  })();
+  document.addEventListener('DOMContentLoaded', ()=> AdManager.init());
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=> t.classList.remove('show'), 2600);
+  }
+  function showConfirm(msg, onYes){
+    const overlay = document.getElementById('modalOverlay');
+    document.getElementById('modalMessage').textContent = msg;
+    overlay.classList.add('show');
+    const yesBtn = document.getElementById('modalConfirm');
+    const noBtn = document.getElementById('modalCancel');
+    function cleanup(){
+      overlay.classList.remove('show');
+      yesBtn.removeEventListener('click', onYesClick);
+      noBtn.removeEventListener('click', onNoClick);
+    }
+    function onYesClick(){ cleanup(); onYes(); }
+    function onNoClick(){ cleanup(); }
+    yesBtn.addEventListener('click', onYesClick);
+    noBtn.addEventListener('click', onNoClick);
+  }
+
+  const CX = 300, CY = 330, OUTER_MAX = 270, HUB_R = 70;
+  const PALETTE = ['#F2A93B','#D8432E','#4FA695','#8C6FD1','#3FA0C9','#D9748A'];
+
+  // ---------- sound effects (synthesized, no external audio files) ----------
+  const SoundFX = (function(){
+    let ctx = null;
+    let muted = false;
+    function ensureCtx(){
+      if(!ctx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return null;
+        ctx = new AC();
+      }
+      if(ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+    function tone(freq, type, startOffset, dur, peakGain){
+      const c = ensureCtx();
+      if(!c || muted) return;
+      const now = c.currentTime + startOffset;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(peakGain, now + Math.min(0.015, dur*0.2));
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(gain).connect(c.destination);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+    }
+    function tick(ringIndex){
+      tone(760 + (ringIndex||0)*90, 'square', 0, 0.045, 0.10);
+    }
+    function land(ringIndex){
+      const base = 720 + (ringIndex||0)*70;
+      tone(base, 'sine', 0, 0.28, 0.18);
+      tone(base*1.5, 'sine', 0.05, 0.24, 0.12);
+    }
+    function allDone(){
+      [660,880,1100,1320].forEach((freq,i)=> tone(freq,'triangle', i*0.08, 0.32, 0.16));
+    }
+    function setMuted(v){ muted = v; }
+    function isMuted(){ return muted; }
+    function unlock(){ ensureCtx(); }
+    return { tick, land, allDone, setMuted, isMuted, unlock };
+  })();
+  document.getElementById('muteBtn').addEventListener('click', ()=>{
+    SoundFX.unlock();
+    SoundFX.setMuted(!SoundFX.isMuted());
+    document.getElementById('muteBtn').textContent = SoundFX.isMuted() ? '🔇' : '🔊';
+  });
+
+  let uidCounter = 1;
+  const uid = () => 'r' + (uidCounter++);
+
+  function mkItems(arr){ return arr.map(t=>({ text:t, weight:1 })); }
+  function defaultRings(){
+    return [
+      { id: uid(), label: 'ジャンル',  items: mkItems(['和食','洋食','中華','カフェ']),        angle:0, state:'idle', excludeMode:'off', forceIndex:null },
+      { id: uid(), label: '予算',      items: mkItems(['〜1000円','〜2000円','〜3000円','奢り']),  angle:0, state:'idle', excludeMode:'off', forceIndex:null },
+      { id: uid(), label: '誰と',      items: mkItems(['自分','友達','家族','同僚']),           angle:0, state:'idle', excludeMode:'off', forceIndex:null },
+    ];
+  }
+
+  let rings = defaultRings();
+  let settings = { mode: 'group', stopOrder: 'simultaneous' };
+  let results = [];
+  let presets = []; // session-only: [{name, data}]
+  let animId = null;
+  let lastFrameTime = null;
+  let groupSpinning = false;
+
+  // ---------- page routing ----------
+  function currentPage(){
+    const h = location.hash.replace('#/','');
+    return (h === 'settings') ? 'settings' : 'play';
+  }
+  function showPage(){
+    const page = currentPage();
+    document.getElementById('playPage').classList.toggle('active', page==='play');
+    document.getElementById('settingsPage').classList.toggle('active', page==='settings');
+    document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.page===page));
+    if(page==='play'){ renderWheel(); renderSideControls(); updateHubVisual(); renderResults(); }
+    else { renderRingsList(); renderChips(); syncAddRingBtn(); renderPresetList(); }
+  }
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{ location.hash = '#/' + b.dataset.page; });
+  });
+  window.addEventListener('hashchange', showPage);
+
+  // ---------- helpers ----------
+  function shade(hex, percent){
+    const n = parseInt(hex.slice(1),16);
+    let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    if(percent>=0){ r=Math.round(r+(255-r)*percent); g=Math.round(g+(255-g)*percent); b=Math.round(b+(255-b)*percent); }
+    else { r=Math.round(r*(1+percent)); g=Math.round(g*(1+percent)); b=Math.round(b*(1+percent)); }
+    r=Math.min(255,Math.max(0,r)); g=Math.min(255,Math.max(0,g)); b=Math.min(255,Math.max(0,b));
+    return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  function point(cx,cy,r,compassDeg){
+    const rad = compassDeg * Math.PI/180;
+    return [cx + r*Math.sin(rad), cy - r*Math.cos(rad)];
+  }
+  function donutSlicePath(cx,cy,r0,r1,a0,a1){
+    const [x0,y0]=point(cx,cy,r1,a0), [x1,y1]=point(cx,cy,r1,a1);
+    const [x2,y2]=point(cx,cy,r0,a1), [x3,y3]=point(cx,cy,r0,a0);
+    const large = (a1-a0) > 180 ? 1 : 0;
+    return `M ${x0} ${y0} A ${r1} ${r1} 0 ${large} 1 ${x1} ${y1} L ${x2} ${y2} A ${r0} ${r0} 0 ${large} 0 ${x3} ${y3} Z`;
+  }
+  function bandWidth(){ return Math.max(24, (OUTER_MAX - HUB_R) / rings.length); }
+  function truncate(s){ return s.length>7 ? s.slice(0,6)+'…' : s; }
+  function escapeXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escapeAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+  // ---------- wheel rendering ----------
+  function renderWheel(){
+    const svg = document.getElementById('wheelSvg');
+    const bw = bandWidth();
+    let inner = `
+      <defs>
+        <radialGradient id="glow" cx="50%" cy="42%" r="60%">
+          <stop offset="0%" stop-color="#3A3268"/>
+          <stop offset="100%" stop-color="#1B1834"/>
+        </radialGradient>
+      </defs>
+      <circle cx="${CX}" cy="${CY}" r="${OUTER_MAX+14}" fill="url(#glow)"/>
+    `;
+    rings.forEach((ring, i) => {
+      const r0 = HUB_R + i*bw, r1 = HUB_R + (i+1)*bw;
+      const n = ring.items.length;
+      const slice = 360/n;
+      const hue = PALETTE[i % PALETTE.length];
+      let segs = '';
+      for(let k=0;k<n;k++){
+        const item = ring.items[k];
+        const a0 = k*slice, a1 = (k+1)*slice;
+        const mid = a0 + slice/2;
+        const fill = (k%2===0) ? hue : shade(hue,-0.18);
+        const fontSize = Math.max(9, Math.min(14, bw*0.34));
+        const midR = (r0+r1)/2;
+        let textTransform = `rotate(${mid} ${CX} ${CY}) translate(${CX} ${CY-midR})`;
+        if(mid>90 && mid<270) textTransform += ' rotate(180)';
+        segs += `<g class="ring-seg">
+          <path d="${donutSlicePath(CX,CY,r0,r1,a0,a1)}" fill="${fill}" stroke="#1B1730" stroke-width="1.5"/>
+          <text transform="${textTransform}" font-size="${fontSize}">${escapeXml(truncate(item.text))}</text>
+        </g>`;
+      }
+      inner += `<g class="ring" data-ring="${ring.id}" transform="rotate(${ring.angle} ${CX} ${CY})">${segs}</g>`;
+    });
+
+    inner += `
+      <polygon class="pointer" points="${CX},64 ${CX-18},28 ${CX+18},28"/>
+      <g class="hub" id="hubBtn">
+        <circle cx="${CX}" cy="${CY}" r="${HUB_R}"/>
+        <text x="${CX}" y="${CY}" id="hubText">回す</text>
+      </g>
+    `;
+    svg.innerHTML = inner;
+    document.getElementById('hubBtn').addEventListener('click', onHubClick);
+    updateHubVisual();
+  }
+
+  function updateWheelTransforms(){
+    rings.forEach(ring=>{
+      const g = document.querySelector(`.ring[data-ring="${ring.id}"]`);
+      if(g) g.setAttribute('transform', `rotate(${ring.angle} ${CX} ${CY})`);
+    });
+  }
+
+  function updateHubVisual(){
+    const hub = document.getElementById('hubBtn');
+    const text = document.getElementById('hubText');
+    const hint = document.getElementById('stageHint');
+    if(!hub) return;
+    hub.classList.remove('spinning','inert');
+    if(settings.mode === 'independent'){
+      hub.classList.add('inert');
+      text.textContent = '個別モード';
+      if(hint) hint.innerHTML = 'ルーレット横の <b>▶ / ■ ボタン</b> で、リングごとに回転・ストップできます。';
+    } else if(groupSpinning){
+      hub.classList.add('spinning');
+      text.textContent = 'ストップ';
+      if(hint) hint.innerHTML = 'もう一度押すと、設定した順番で各リングが止まります。';
+    } else {
+      text.textContent = '回す';
+      if(hint) hint.innerHTML = '中央のボタンで <b>全リングを一斉スタート</b>。もう一度押すとストップします。';
+    }
+  }
+
+  // ---------- side controls (independent mode) ----------
+  function renderSideControls(){
+    const wrap = document.getElementById('sideControls');
+    if(settings.mode !== 'independent'){ wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    wrap.innerHTML = rings.map((ring,i)=>{
+      const color = PALETTE[i % PALETTE.length];
+      const spinning = ring.state === 'spinning';
+      const statusText = ring.state==='spinning' ? '回転中…' : ring.state==='stopping' ? '減速中…' : '停止中';
+      return `
+        <button class="ring-btn ${spinning?'spinning':''}" data-action="ring-toggle" data-ring="${ring.id}">
+          <span class="swatch" style="background:${color}"></span>
+          <span class="rb-info">
+            <span class="rb-label">${escapeXml(ring.label)}</span>
+            <span class="rb-status">${statusText}</span>
+          </span>
+          <span class="rb-icon">${spinning ? '■' : '▶'}</span>
+        </button>
+      `;
+    }).join('');
+  }
+  document.getElementById('sideControls').addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-action="ring-toggle"]');
+    if(!btn) return;
+    const ring = rings.find(r=>r.id===btn.dataset.ring);
+    if(!ring) return;
+    if(ring.state==='spinning') stopRing(ring);
+    else if(ring.state==='idle') startRingSpin(ring);
+    renderSideControls();
+  });
+
+  // ---------- selection logic (weight / exclusion / force) ----------
+  function pickIndex(ring){
+    if(ring.forceIndex !== null && ring.forceIndex !== undefined && ring.items[ring.forceIndex]){
+      return ring.forceIndex;
+    }
+    let eligible = ring.items.map((it,idx)=>idx);
+
+    if(ring.excludeMode === 'no-repeat' && ring.lastIndex !== undefined && eligible.length>1){
+      eligible = eligible.filter(idx => idx !== ring.lastIndex);
+    } else if(ring.excludeMode === 'until-cycle'){
+      if(!ring.usedSet) ring.usedSet = new Set();
+      let pool = eligible.filter(idx => !ring.usedSet.has(idx));
+      if(pool.length===0){ ring.usedSet = new Set(); pool = eligible; }
+      eligible = pool;
+    }
+    const weights = eligible.map(idx => Math.max(0.01, Number(ring.items[idx].weight) || 1));
+    const total = weights.reduce((a,b)=>a+b,0);
+    let r = Math.random()*total;
+    for(let i=0;i<eligible.length;i++){
+      r -= weights[i];
+      if(r<=0) return eligible[i];
+    }
+    return eligible[eligible.length-1];
+  }
+
+  // ---------- animation ----------
+  function ensureAnimating(){
+    if(animId) return;
+    lastFrameTime = null;
+    animId = requestAnimationFrame(tick);
+  }
+  function tick(now){
+    if(lastFrameTime===null) lastFrameTime = now;
+    const dt = now - lastFrameTime;
+    lastFrameTime = now;
+    let active = false;
+    rings.forEach((ring, ringIdx)=>{
+      if(ring.state === 'spinning'){
+        ring.angle += ring.spinSpeed * dt;
+        active = true;
+        maybeTick(ring, ringIdx);
+      } else if(ring.state === 'stopping'){
+        const t = Math.min(1, (now - ring.stopStart)/ring.stopDuration);
+        const eased = 1 - Math.pow(1-t,3);
+        ring.angle = ring.stopFrom + (ring.stopTo-ring.stopFrom)*eased;
+        maybeTick(ring, ringIdx);
+        if(t>=1){
+          ring.state = 'idle';
+          ring.angle = ((ring.stopTo % 360)+360)%360;
+          onRingStopped(ring, ringIdx);
+        } else { active = true; }
+      }
+    });
+    updateWheelTransforms();
+    if(active){
+      animId = requestAnimationFrame(tick);
+    } else {
+      animId = null;
+      if(groupSpinning && rings.every(r=>r.state==='idle')){
+        groupSpinning = false;
+        updateHubVisual();
+        if(rings.length>1) SoundFX.allDone();
+      }
+      renderSideControls();
+    }
+  }
+
+  function maybeTick(ring, ringIdx){
+    const slice = 360 / ring.items.length;
+    const crossed = Math.floor(ring.angle / slice);
+    if(ring._lastCrossed === undefined) ring._lastCrossed = crossed;
+    if(crossed !== ring._lastCrossed){
+      ring._lastCrossed = crossed;
+      SoundFX.tick(ringIdx);
+    }
+  }
+  function startRingSpin(ring){
+    SoundFX.unlock();
+    ring.state = 'spinning';
+    ring.spinSpeed = 0.24 + Math.random()*0.14;
+    ring._lastCrossed = Math.floor(ring.angle / (360/ring.items.length));
+    ensureAnimating();
+  }
+  function stopRing(ring){
+    if(ring.state !== 'spinning') return;
+    const idx = pickIndex(ring);
+    const n = ring.items.length;
+    const slice = 360/n;
+    const segCenter = idx*slice + slice/2;
+    const extraSpins = 4 + Math.floor(Math.random()*3);
+    let target = extraSpins*360 + (((-segCenter)%360)+360)%360;
+    const base = Math.floor(ring.angle/360)*360;
+    target += base;
+    while(target <= ring.angle) target += 360;
+    ring.state = 'stopping';
+    ring.stopFrom = ring.angle;
+    ring.stopTo = target;
+    ring.stopStart = performance.now();
+    ring.stopDuration = 2200 + Math.random()*500;
+    ring.resultIndex = idx;
+    ensureAnimating();
+  }
+  function onRingStopped(ring, ringIdx){
+    ring.lastIndex = ring.resultIndex;
+    if(ring.excludeMode === 'until-cycle'){
+      if(!ring.usedSet) ring.usedSet = new Set();
+      ring.usedSet.add(ring.resultIndex);
+    }
+    SoundFX.land(ringIdx);
+    AdManager.notifyRingStopped();
+    results.push({ ringId: ring.id, label: ring.label, item: ring.items[ring.resultIndex].text });
+    renderResults();
+  }
+
+  function onHubClick(){
+    SoundFX.unlock();
+    if(settings.mode === 'independent') return;
+    if(!groupSpinning){
+      if(rings.some(r=>r.items.length<2)){ showToast('各リングに項目を2つ以上入力してください。'); return; }
+      results = [];
+      renderResults();
+      groupSpinning = true;
+      rings.forEach(r=> startRingSpin(r));
+      updateHubVisual();
+    } else {
+      if(rings.every(r=>r.state!=='spinning')) return;
+      const order = settings.stopOrder;
+      let sequence = rings.slice();
+      if(order === 'outside-in') sequence = rings.slice().reverse();
+      const gap = (order === 'simultaneous') ? 0 : 650;
+      sequence.forEach((ring, i)=>{ setTimeout(()=> stopRing(ring), i*gap); });
+      updateHubVisual();
+    }
+  }
+
+  // ---------- results ----------
+  function renderResults(){
+    const list = document.getElementById('resultsList');
+    if(!list) return;
+    if(results.length===0){
+      list.innerHTML = `<p class="empty-note">まだ結果はありません。回してみましょう。</p>`;
+      return;
+    }
+    list.innerHTML = results.map(r=>`
+      <div class="omikuji">
+        <div>
+          <div class="oring">${escapeXml(r.label)}</div>
+          <div class="oitem">${escapeXml(r.item)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+  document.addEventListener('click', (e)=>{
+    if(e.target.id === 'clearResultsBtn'){ results = []; renderResults(); }
+  });
+
+  // ---------- settings page: rings list ----------
+  function renderRingsList(){
+    const wrap = document.getElementById('ringsList');
+    if(!wrap) return;
+    wrap.innerHTML = rings.map((ring, i)=>{
+      const color = PALETTE[i % PALETTE.length];
+      const canRemoveItem = ring.items.length > 2;
+      const itemsHtml = ring.items.map((item, k)=>`
+        <div class="item-row">
+          <input type="text" data-action="edit-item-text" data-ring="${ring.id}" data-idx="${k}" value="${escapeAttr(item.text)}" placeholder="項目名" />
+          <input type="number" min="0.1" step="0.5" data-action="edit-item-weight" data-ring="${ring.id}" data-idx="${k}" value="${item.weight}" title="当たりやすさ（重み）" />
+          <button class="icon-btn" data-action="remove-item" data-ring="${ring.id}" data-idx="${k}" ${canRemoveItem?'':'disabled style="opacity:.25;cursor:not-allowed;"'} title="削除">×</button>
+        </div>
+      `).join('');
+      const excludeOpts = [['off','オフ'],['no-repeat','連続なし'],['until-cycle','一巡除外']];
+      const excludeChips = excludeOpts.map(([val,lab])=>`<div class="chip ${ring.excludeMode===val?'active':''}" data-action="set-exclude" data-ring="${ring.id}" data-val="${val}">${lab}</div>`).join('');
+      const forceOptions = `<option value="">なし</option>` + ring.items.map((item,k)=>`<option value="${k}" ${ring.forceIndex===k?'selected':''}>${escapeAttr(item.text || `(空欄${k+1})`)}</option>`).join('');
+      return `
+        <div class="ring-row">
+          <div class="ring-row-head">
+            <span class="swatch" style="background:${color}"></span>
+            <input class="ring-name" data-action="edit-label" data-ring="${ring.id}" value="${escapeAttr(ring.label)}" placeholder="このリングの名前" />
+            <button class="icon-btn" data-action="move-in" data-ring="${ring.id}" title="内側へ" ${i===0?'disabled style="opacity:.25;cursor:not-allowed;"':''}>▲</button>
+            <button class="icon-btn" data-action="move-out" data-ring="${ring.id}" title="外側へ" ${i===rings.length-1?'disabled style="opacity:.25;cursor:not-allowed;"':''}>▼</button>
+            <button class="icon-btn" data-action="remove-ring" data-ring="${ring.id}" title="このリングを削除" ${rings.length<=1?'disabled style="opacity:.25;cursor:not-allowed;"':''}>🗑</button>
+          </div>
+          <div class="items-list">${itemsHtml}</div>
+          <div class="row-actions">
+            <button class="small-btn" data-action="add-item" data-ring="${ring.id}">＋ 項目を追加</button>
+          </div>
+          <p class="seg-label">除外設定</p>
+          <div class="radio-row">${excludeChips}</div>
+          <p class="seg-label">強制当選</p>
+          <select class="force-select ${ring.forceIndex!==null&&ring.forceIndex!==undefined?'armed':''}" data-action="set-force" data-ring="${ring.id}">${forceOptions}</select>
+        </div>
+      `;
+    }).join('');
+  }
+  document.getElementById('ringsList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const action = btn.dataset.action;
+    const ringId = btn.dataset.ring;
+    const ring = rings.find(r=>r.id===ringId);
+    if(!ring) return;
+    if(action==='add-item'){ ring.items.push({text:'新しい項目', weight:1}); renderRingsList(); }
+    else if(action==='remove-item'){ const idx=+btn.dataset.idx; if(ring.items.length>2){ ring.items.splice(idx,1); if(ring.forceIndex===idx) ring.forceIndex=null; renderRingsList(); } }
+    else if(action==='remove-ring'){ if(rings.length>1){ rings = rings.filter(r=>r.id!==ringId); renderRingsList(); syncAddRingBtn(); } }
+    else if(action==='move-in'){ const i=rings.findIndex(r=>r.id===ringId); if(i>0){ [rings[i-1],rings[i]]=[rings[i],rings[i-1]]; renderRingsList(); } }
+    else if(action==='move-out'){ const i=rings.findIndex(r=>r.id===ringId); if(i<rings.length-1){ [rings[i+1],rings[i]]=[rings[i],rings[i+1]]; renderRingsList(); } }
+    else if(action==='set-exclude'){ ring.excludeMode = btn.dataset.val; renderRingsList(); }
+  });
+  document.getElementById('ringsList').addEventListener('input', (e)=>{
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    const ring = rings.find(r=>r.id===el.dataset.ring);
+    if(!ring) return;
+    if(el.dataset.action==='edit-label'){ ring.label = el.value; }
+    else if(el.dataset.action==='edit-item-text'){ ring.items[+el.dataset.idx].text = el.value || '無題'; }
+    else if(el.dataset.action==='edit-item-weight'){ ring.items[+el.dataset.idx].weight = Math.max(0.1, Number(el.value)||1); }
+  });
+  document.getElementById('ringsList').addEventListener('change', (e)=>{
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    const ring = rings.find(r=>r.id===el.dataset.ring);
+    if(!ring) return;
+    if(el.dataset.action==='set-force'){ ring.forceIndex = el.value==='' ? null : +el.value; renderRingsList(); }
+  });
+  document.getElementById('addRingBtn').addEventListener('click', ()=>{
+    if(rings.length>=6){ showToast('リングは最大6重までにしてください。'); return; }
+    rings.push({ id: uid(), label: `リング${rings.length+1}`, items: mkItems(['項目A','項目B','項目C']), angle:0, state:'idle', excludeMode:'off', forceIndex:null });
+    renderRingsList(); syncAddRingBtn();
+  });
+  function syncAddRingBtn(){ document.getElementById('addRingBtn').disabled = rings.length>=6; }
+  document.getElementById('resetAllBtn').addEventListener('click', ()=>{
+    showConfirm('リングの数・項目数はそのままに、すべてのリング名と項目名を空欄に戻します。重み・除外設定・強制当選もリセットされます。よろしいですか？', ()=>{
+      rings.forEach(ring=>{
+        ring.label = '';
+        ring.items = ring.items.map(()=>({ text:'', weight:1 }));
+        ring.excludeMode = 'off';
+        ring.forceIndex = null;
+        ring.lastIndex = undefined;
+        ring.usedSet = undefined;
+        ring.angle = 0;
+        ring.state = 'idle';
+      });
+      results = [];
+      renderRingsList();
+      showToast('クリアしました。');
+    });
+  });
+
+  // ---------- settings page: chips ----------
+  function renderChips(){
+    document.querySelectorAll('#modeChips .chip').forEach(c=> c.classList.toggle('active', c.dataset.mode===settings.mode));
+    document.querySelectorAll('#orderChips .chip').forEach(c=>{
+      c.classList.toggle('active', c.dataset.order===settings.stopOrder);
+      c.classList.toggle('disabled', settings.mode==='independent');
+    });
+  }
+  document.getElementById('modeChips').addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    if(groupSpinning || rings.some(r=>r.state!=='idle')){ showToast('回転中は変更できません。'); return; }
+    settings.mode = chip.dataset.mode;
+    renderChips();
+  });
+  document.getElementById('orderChips').addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip');
+    if(!chip || settings.mode==='independent') return;
+    settings.stopOrder = chip.dataset.order;
+    renderChips();
+  });
+
+  // ---------- presets ----------
+  function serializeConfig(){
+    return {
+      rings: rings.map(r=>({
+        label: r.label,
+        items: r.items.map(it=>({ text: it.text, weight: it.weight })),
+        excludeMode: r.excludeMode || 'off',
+        forceIndex: (r.forceIndex===undefined?null:r.forceIndex)
+      })),
+      settings: { mode: settings.mode, stopOrder: settings.stopOrder }
+    };
+  }
+  function applyConfig(cfg){
+    if(!cfg || !Array.isArray(cfg.rings) || cfg.rings.length===0) throw new Error('invalid config');
+    rings = cfg.rings.map(r=>({
+      id: uid(),
+      label: r.label || 'リング',
+      items: (r.items||[]).map(it=>({ text: it.text || '項目', weight: Number(it.weight)||1 })),
+      angle: 0, state: 'idle',
+      excludeMode: r.excludeMode || 'off',
+      forceIndex: (r.forceIndex===undefined?null:r.forceIndex)
+    }));
+    if(cfg.settings){
+      settings.mode = cfg.settings.mode === 'independent' ? 'independent' : 'group';
+      settings.stopOrder = ['simultaneous','inside-out','outside-in'].includes(cfg.settings.stopOrder) ? cfg.settings.stopOrder : 'simultaneous';
+    }
+    results = [];
+    renderRingsList(); renderChips(); syncAddRingBtn();
+  }
+
+  function renderPresetList(){
+    const wrap = document.getElementById('presetList');
+    if(presets.length===0){ wrap.innerHTML = `<p class="empty-note">保存されたプリセットはまだありません（このセッション中のみ保持されます）。</p>`; return; }
+    wrap.innerHTML = presets.map((p,i)=>`
+      <div class="preset-row">
+        <span class="pname">${escapeXml(p.name)}</span>
+        <button class="small-btn" data-action="load-preset" data-idx="${i}">読み込む</button>
+        <button class="small-btn" data-action="delete-preset" data-idx="${i}">削除</button>
+      </div>
+    `).join('');
+  }
+  document.getElementById('presetList').addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const idx = +btn.dataset.idx;
+    if(btn.dataset.action==='load-preset'){
+      if(presets[idx]) applyConfig(JSON.parse(JSON.stringify(presets[idx].data)));
+    } else if(btn.dataset.action==='delete-preset'){
+      presets.splice(idx,1); renderPresetList();
+    }
+  });
+  document.getElementById('savePresetBtn').addEventListener('click', ()=>{
+    const input = document.getElementById('presetNameInput');
+    const name = input.value.trim() || `プリセット${presets.length+1}`;
+    presets.push({ name, data: serializeConfig() });
+    input.value = '';
+    renderPresetList();
+  });
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const data = JSON.stringify(serializeConfig(), null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gurukuji-preset.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    document.getElementById('importFileInput').click();
+  });
+  document.getElementById('importFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const cfg = JSON.parse(reader.result);
+        applyConfig(cfg);
+      }catch(err){
+        showToast('読み込みに失敗しました。ファイル形式を確認してください。');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- ads (AdMob via Capacitor, native app only — no-op on plain web) ----------
+  // NOTE: 以下はテスト用のGoogle公式サンプル広告ユニットIDです。
+  // 実際にリリースする際は、ご自身のAdMobアカウントで作成した本番の広告ユニットIDに置き換えてください。
+  const AD_UNIT_IDS = {
+    banner: 'ca-app-pub-3940256099942544/6300978111',       // TODO: 本番IDに差し替え
+    interstitial: 'ca-app-pub-3940256099942544/1033173712',  // TODO: 本番IDに差し替え
+  };
+  const AdBridge = (function(){
+    let groupSpinCount = 0;
+    function isNative(){
+      return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    }
+    function plugin(){
+      return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob) || null;
+    }
+    async function init(){
+      if(!isNative()) return;
+      const AdMob = plugin();
+      if(!AdMob) return;
+      try{
+        await AdMob.initialize();
+        const consentInfo = await AdMob.requestConsentInfo();
+        if(consentInfo && consentInfo.isConsentFormAvailable && consentInfo.status === 'REQUIRED'){
+          await AdMob.showConsentForm();
+        }
+      }catch(e){ console.warn('[AdMob] init/consent failed', e); }
+      document.body.classList.add('native-ads');
+      showBanner();
+    }
+    async function showBanner(){
+      if(!isNative()) return;
+      const AdMob = plugin();
+      if(!AdMob) return;
+      try{
+        await AdMob.showBanner({
+          adId: AD_UNIT_IDS.banner,
+          adSize: 'ADAPTIVE_BANNER',
+          position: 'BOTTOM_CENTER',
+          margin: 0,
+        });
+      }catch(e){ console.warn('[AdMob] banner failed', e); }
+    }
+    async function maybeShowInterstitial(){
+      if(!isNative()) return;
+      groupSpinCount++;
+      if(groupSpinCount % 5 !== 0) return; // 5回に1回だけ挟む（ユーザー体験への配慮）
+      const AdMob = plugin();
+      if(!AdMob) return;
+      try{
+        await AdMob.prepareInterstitial({ adId: AD_UNIT_IDS.interstitial });
+        await AdMob.showInterstitial();
+      }catch(e){ /* 読み込み未完了などは静かに無視 */ }
+    }
+    return { init, showBanner, maybeShowInterstitial, isNative };
+  })();
+
+  // ---------- init ----------
+  if(!location.hash) location.hash = '#/play';
+  showPage();
+  AdBridge.init().catch(()=>{});
+})();
+</script>
+</body>
+</html>
