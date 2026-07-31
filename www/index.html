@@ -342,49 +342,44 @@
 (function(){
   "use strict";
 
-  // ---------- ad monetization hooks ----------
-  // 実際の広告表示には Capacitor + @capacitor-community/admob の導入が必要です。
-  // ブラウザ/PWAではネイティブ判定が false になるため、広告コードは一切実行されません。
-  // ネイティブ化の手順は README.md を参照してください。
+  // ---------- ad monetization (Capacitor + @capacitor-community/admob) ----------
+  // バナー広告のみ表示します。ブラウザ/PWAではネイティブ判定が false になるため、
+  // 広告コードは実行されません。
+  //
+  // 現在は「テスト広告ID」を使用しています。本番切り替え時は、下のIDを
+  // ご自身のAdMob本番バナーIDに書き換えてください。
+  //   バナー: ca-app-pub-8174756915786797/9055692502
+  //   （AndroidManifest.xml の APPLICATION_ID も ca-app-pub-8174756915786797~3583873975 に変更）
   const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
+  const AD_UNIT_BANNER_ANDROID = 'ca-app-pub-8174756915786797/9055692502';
+const AD_UNIT_BANNER_IOS = 'ca-app-pub-8174756915786797/7352027313';
+const AD_UNIT_BANNER = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios')
+  ? AD_UNIT_BANNER_IOS
+  : AD_UNIT_BANNER_ANDROID; // 本番バナーID
+
   const AdManager = (function(){
-    let ringStopCount = 0;
-    const INTERSTITIAL_EVERY_N_STOPS = 6; // 目安：フルスピン2回に1回程度
     async function init(){
       if(!isNativeApp()) return;
       try{
-        // --- ここから実装例（プラグイン導入後にコメントを外してください） ---
-        // const { AdMob } = await import('@capacitor-community/admob');
-        // await AdMob.initialize({ requestTrackingAuthorization: true, testingDevices: [], initializeForTesting: false });
-        // await showBanner();
-        // -----------------------------------------------------------
-      }catch(e){ console.warn('[AdManager] init skipped:', e); }
+        const { AdMob } = await import('@capacitor-community/admob');
+        await AdMob.initialize({ requestTrackingAuthorization: true, initializeForTesting: false });
+        await showBanner();
+      }catch(e){ console.warn('[AdManager] init failed:', e); }
     }
     async function showBanner(){
       if(!isNativeApp()) return;
-      document.body.classList.add('has-native-banner');
       try{
-        // const { AdMob, BannerAdPosition, BannerAdSize } = await import('@capacitor-community/admob');
-        // await AdMob.showBanner({
-        //   adId: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // ご自身のバナー広告ユニットIDに置き換え
-        //   adSize: BannerAdSize.ADAPTIVE_BANNER,
-        //   position: BannerAdPosition.BOTTOM_CENTER,
-        // });
-      }catch(e){ console.warn('[AdManager] banner skipped:', e); }
+        const { AdMob, BannerAdPosition, BannerAdSize } = await import('@capacitor-community/admob');
+        await AdMob.showBanner({
+          adId: AD_UNIT_BANNER,
+          adSize: BannerAdSize.ADAPTIVE_BANNER,
+          position: BannerAdPosition.BOTTOM_CENTER,
+        });
+        document.body.classList.add('has-native-banner');
+      }catch(e){ console.warn('[AdManager] banner failed:', e); }
     }
-    async function notifyRingStopped(){
-      if(!isNativeApp()) return;
-      ringStopCount++;
-      if(ringStopCount % INTERSTITIAL_EVERY_N_STOPS === 0){
-        try{
-          // const { AdMob } = await import('@capacitor-community/admob');
-          // await AdMob.prepareInterstitial({ adId: 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ' });
-          // await AdMob.showInterstitial();
-        }catch(e){ console.warn('[AdManager] interstitial skipped:', e); }
-      }
-    }
-    return { init, showBanner, notifyRingStopped };
+    return { init, showBanner };
   })();
   document.addEventListener('DOMContentLoaded', ()=> AdManager.init());
 
@@ -742,7 +737,6 @@
       ring.usedSet.add(ring.resultIndex);
     }
     SoundFX.land(ringIdx);
-    AdManager.notifyRingStopped();
     results.push({ ringId: ring.id, label: ring.label, item: ring.items[ring.resultIndex].text });
     renderResults();
   }
@@ -992,66 +986,9 @@
     reader.readAsText(file);
   });
 
-  // ---------- ads (AdMob via Capacitor, native app only — no-op on plain web) ----------
-  // NOTE: 以下はテスト用のGoogle公式サンプル広告ユニットIDです。
-  // 実際にリリースする際は、ご自身のAdMobアカウントで作成した本番の広告ユニットIDに置き換えてください。
-  const AD_UNIT_IDS = {
-    banner: 'ca-app-pub-3940256099942544/6300978111',       // TODO: 本番IDに差し替え
-    interstitial: 'ca-app-pub-3940256099942544/1033173712',  // TODO: 本番IDに差し替え
-  };
-  const AdBridge = (function(){
-    let groupSpinCount = 0;
-    function isNative(){
-      return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    }
-    function plugin(){
-      return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob) || null;
-    }
-    async function init(){
-      if(!isNative()) return;
-      const AdMob = plugin();
-      if(!AdMob) return;
-      try{
-        await AdMob.initialize();
-        const consentInfo = await AdMob.requestConsentInfo();
-        if(consentInfo && consentInfo.isConsentFormAvailable && consentInfo.status === 'REQUIRED'){
-          await AdMob.showConsentForm();
-        }
-      }catch(e){ console.warn('[AdMob] init/consent failed', e); }
-      document.body.classList.add('native-ads');
-      showBanner();
-    }
-    async function showBanner(){
-      if(!isNative()) return;
-      const AdMob = plugin();
-      if(!AdMob) return;
-      try{
-        await AdMob.showBanner({
-          adId: AD_UNIT_IDS.banner,
-          adSize: 'ADAPTIVE_BANNER',
-          position: 'BOTTOM_CENTER',
-          margin: 0,
-        });
-      }catch(e){ console.warn('[AdMob] banner failed', e); }
-    }
-    async function maybeShowInterstitial(){
-      if(!isNative()) return;
-      groupSpinCount++;
-      if(groupSpinCount % 5 !== 0) return; // 5回に1回だけ挟む（ユーザー体験への配慮）
-      const AdMob = plugin();
-      if(!AdMob) return;
-      try{
-        await AdMob.prepareInterstitial({ adId: AD_UNIT_IDS.interstitial });
-        await AdMob.showInterstitial();
-      }catch(e){ /* 読み込み未完了などは静かに無視 */ }
-    }
-    return { init, showBanner, maybeShowInterstitial, isNative };
-  })();
-
   // ---------- init ----------
   if(!location.hash) location.hash = '#/play';
   showPage();
-  AdBridge.init().catch(()=>{});
 })();
 </script>
 </body>

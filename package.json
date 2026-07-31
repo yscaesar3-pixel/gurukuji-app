@@ -1,0 +1,28 @@
+{
+  "name": "gurukuji-app",
+  "version": "1.0.0",
+  "description": "``` gurukuji-app/ ├── index.html            … アプリ本体（PWA化・広告フック実装済み） ├── manifest.webmanifest  … PWAの設定ファイル ├── sw.js                 … オフライン対応（Service Worker） ├── icons/                 … アプリアイコン一式 ├── PRIVACY_POLICY.md      … プライバシーポリシー下書き（広告掲載に必須） └── README.md              … この手順書 ```",
+  "main": "sw.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yscaesar3-pixel/gurukuji-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/yscaesar3-pixel/gurukuji-app/issues"
+  },
+  "homepage": "https://github.com/yscaesar3-pixel/gurukuji-app#readme",
+  "dependencies": {
+    "@capacitor-community/admob": "^8.0.0",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2"
+  }
+}

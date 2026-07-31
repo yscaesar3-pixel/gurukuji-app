@@ -1,0 +1,38 @@
+ぐるくじ
+
+
+【Google Admob】
+アプリid
+ca-app-pub-8174756915786797~3583873975
+
+■gurukuji_android_home_banner
+AdMob アプリ ID
+ca-app-pub-8174756915786797~3583873975
+
+AdMob 広告ユニット ID
+ca-app-pub-8174756915786797/9055692502
+
+■gurukuji_android_home_interstitial
+AdMob アプリ ID
+ca-app-pub-8174756915786797~3583873975
+
+AdMob 広告ユニット ID
+ca-app-pub-8174756915786797/7351608453
+
+『iOS』
+アプリid
+ca-app-pub-8174756915786797~8523960022
+
+■gurukuji_ios_home_banner
+AdMob アプリ ID
+ca-app-pub-8174756915786797~8523960022
+
+AdMob 広告ユニット ID
+ca-app-pub-8174756915786797/7352027313
+
+■gurukuji_ios_home_interstitial
+AdMob アプリ ID
+ca-app-pub-8174756915786797~8523960022
+
+AdMob 広告ユニット ID
+ca-app-pub-8174756915786797/1539749275
