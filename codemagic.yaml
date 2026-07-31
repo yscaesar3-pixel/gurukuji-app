@@ -8,7 +8,7 @@ workflows:
       # App Store Connect API Keyを登録し、ここにその名前を指定してください。
       # (oddiroと同じAPIキーを使い回して問題ありません。その場合は
       #  oddiro側で登録した名前をそのまま指定してください)
-      app_store_connect: gurukuji_asc_key
+      app_store_connect: oddiro_asc_key
     environment:
       groups:
         - ios_signing
