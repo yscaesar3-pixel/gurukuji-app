@@ -49,8 +49,6 @@
     <true/>
     <key>GADApplicationIdentifier</key>
     <string>ca-app-pub-8174756915786797~8523960022</string>
-    <key>NSUserTrackingUsageDescription</key>
-    <string>広告の表示をより適切なものにするため、この許可を利用します。</string>
     <key>ITSAppUsesNonExemptEncryption</key>
 <false/>
 </dict>
