@@ -370,7 +370,7 @@
       if(!isNativeApp()) return;
       try{
         const { AdMob } = await import('@capacitor-community/admob');
-        await AdMob.initialize({ requestTrackingAuthorization: true, initializeForTesting: false });
+        await AdMob.initialize({ requestTrackingAuthorization: false, initializeForTesting: false });
         await showBanner();
       }catch(e){ console.warn('[AdManager] init failed:', e); }
     }
