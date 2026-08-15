@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>ぐるくじ ― 多重ルーレット</title>
 <meta name="description" content="何重にもできるカスタム多重ルーレット。行き先決め、順番決め、罰ゲームなど何でも使えます。" />
 <link rel="manifest" href="./manifest.webmanifest" />
@@ -35,6 +35,7 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   body{
     background:var(--bg-glow);
     color:var(--ink);
@@ -175,7 +176,7 @@
   .swatch{ width:14px;height:14px;border-radius:50%;flex:none; box-shadow:0 0 0 2px rgba(0,0,0,.25) inset; }
   .ring-name{
     flex:1; min-width:0; background:transparent; border:none; border-bottom:1px solid var(--line);
-    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700; font-size:14px; padding:4px 2px;
+    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700; font-size:16px; padding:4px 2px;
   }
   .ring-name:focus{ outline:none; border-bottom-color:var(--amber); }
   .icon-btn{
@@ -187,12 +188,12 @@
   .item-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .item-row input[type=text]{
     flex:1; background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-size:13px; padding:7px 9px; min-width:0;
+    color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; font-size:16px; padding:7px 9px; min-width:0;
   }
   .item-row input[type=text]:focus{ outline:none; border-color:var(--amber); }
   .item-row input[type=number]{
-    width:52px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); font-size:12px; padding:6px 4px; text-align:center; flex:none;
+    width:58px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:16px; padding:6px 4px; text-align:center; flex:none;
   }
   .item-row label.chk{ display:flex; align-items:center; gap:3px; font-size:10.5px; color:var(--muted); flex:none; white-space:nowrap; }
   .row-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px;}
@@ -210,7 +211,7 @@
 
   .force-select{
     width:100%; background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); font-size:12.5px; padding:7px 8px; margin-top:2px;
+    color:var(--ink); font-size:16px; padding:7px 8px; margin-top:2px;
   }
   .force-select.armed{ border-color:var(--red); color:var(--red); }
   .force-note{ font-size:10.5px; color:var(--muted); margin-top:4px; }
@@ -223,7 +224,7 @@
   .save-row{ display:flex; gap:8px; margin-top:4px; flex-wrap:wrap; }
   .save-row input{
     flex:1; min-width:120px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); font-size:13px; padding:8px 10px;
+    color:var(--ink); font-size:16px; padding:8px 10px;
   }
   .io-row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
   .io-row .small-btn{ flex:1; min-width:120px; text-align:center; }
@@ -331,8 +332,8 @@
         <button class="small-btn" id="savePresetBtn">保存</button>
       </div>
       <div class="io-row">
-        <button class="small-btn" id="exportBtn">📤 書き出し(.json)</button>
-        <button class="small-btn" id="importBtn">📥 読み込み(.json)</button>
+        <button class="small-btn" id="exportBtn">📤 書き出し</button>
+        <button class="small-btn" id="importBtn">📥 読み込み</button>
       </div>
       <input type="file" id="importFileInput" accept="application/json" />
     </div>
@@ -355,23 +356,31 @@
   "use strict";
 
   // ---------- ad monetization (Capacitor + @capacitor-community/admob) ----------
-  // バナー広告のみ表示します。ブラウザ/PWAではネイティブ判定が false になるため、
-  // 広告コードは実行されません。
+  // バナー広告 + インタースティシャル広告(全画面)。ブラウザ/PWAではネイティブ判定が
+  // false になるため、広告コードは実行されません。
   const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const isIOS = () => !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
 
   const AD_UNIT_BANNER_ANDROID = 'ca-app-pub-8174756915786797/9055692502';
   const AD_UNIT_BANNER_IOS = 'ca-app-pub-8174756915786797/8944777179';
-  const AD_UNIT_BANNER = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios')
-    ? AD_UNIT_BANNER_IOS
-    : AD_UNIT_BANNER_ANDROID;
+  const AD_UNIT_BANNER = isIOS() ? AD_UNIT_BANNER_IOS : AD_UNIT_BANNER_ANDROID;
+
+  const AD_UNIT_INTERSTITIAL_ANDROID = 'ca-app-pub-8174756915786797/7351608453';
+  const AD_UNIT_INTERSTITIAL_IOS = 'ca-app-pub-8174756915786797/8653967284';
+  const AD_UNIT_INTERSTITIAL = isIOS() ? AD_UNIT_INTERSTITIAL_IOS : AD_UNIT_INTERSTITIAL_ANDROID;
 
   const AdManager = (function(){
+    let ringStopCount = 0;
+    const INTERSTITIAL_EVERY_N_STOPS = 6; // 目安：フルスピン2回に1回程度
+    let interstitialReady = false;
+
     async function init(){
       if(!isNativeApp()) return;
       try{
         const { AdMob } = await import('@capacitor-community/admob');
         await AdMob.initialize({ requestTrackingAuthorization: false, initializeForTesting: false });
         await showBanner();
+        await prepareInterstitial();
       }catch(e){ console.warn('[AdManager] init failed:', e); }
     }
     async function showBanner(){
@@ -386,7 +395,30 @@
         document.body.classList.add('has-native-banner');
       }catch(e){ console.warn('[AdManager] banner failed:', e); }
     }
-    return { init, showBanner };
+    async function prepareInterstitial(){
+      if(!isNativeApp()) return;
+      try{
+        const { AdMob } = await import('@capacitor-community/admob');
+        await AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL });
+        interstitialReady = true;
+      }catch(e){ interstitialReady = false; console.warn('[AdManager] interstitial prepare failed:', e); }
+    }
+    async function notifyRingStopped(){
+      if(!isNativeApp()) return;
+      ringStopCount++;
+      if(ringStopCount % INTERSTITIAL_EVERY_N_STOPS !== 0) return;
+      try{
+        const { AdMob } = await import('@capacitor-community/admob');
+        if(interstitialReady){
+          await AdMob.showInterstitial();
+          interstitialReady = false;
+        }
+      }catch(e){ console.warn('[AdManager] interstitial show failed:', e); }
+      finally{
+        prepareInterstitial(); // 次回に備えて先読みしておく
+      }
+    }
+    return { init, showBanner, notifyRingStopped };
   })();
   document.addEventListener('DOMContentLoaded', ()=> AdManager.init());
 
@@ -744,6 +776,7 @@
       ring.usedSet.add(ring.resultIndex);
     }
     SoundFX.land(ringIdx);
+    AdManager.notifyRingStopped();
     results.push({ ringId: ring.id, label: ring.label, item: ring.items[ring.resultIndex].text });
     renderResults();
   }
