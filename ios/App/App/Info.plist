@@ -50,6 +50,7 @@
     <key>GADApplicationIdentifier</key>
     <string>ca-app-pub-8174756915786797~8523960022</string>
     <key>ITSAppUsesNonExemptEncryption</key>
+<false/>
     <key>SKAdNetworkItems</key>
     <array>
         <dict><key>SKAdNetworkIdentifier</key><string>cstr6suwn9.skadnetwork</string></dict>
@@ -103,6 +104,5 @@
         <dict><key>SKAdNetworkIdentifier</key><string>97r2b46745.skadnetwork</string></dict>
         <dict><key>SKAdNetworkIdentifier</key><string>3qcr597p9d.skadnetwork</string></dict>
     </array>
-<false/>
 </dict>
 </plist>
