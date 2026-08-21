@@ -383,12 +383,16 @@
     const INTERSTITIAL_EVERY_N_STOPS = 6; // 目安：フルスピン2回に1回程度
     let interstitialReady = false;
 
+    function getAdMobPlugin(){
+      return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob) || null;
+    }
+
     async function init(){
       pushAdLog(`init開始 native=${isNativeApp()} platform=${window.Capacitor && window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : '不明'}`);
       if(!isNativeApp()){ pushAdLog('ネイティブ環境ではないため広告処理をスキップ'); return; }
+      const AdMob = getAdMobPlugin();
+      if(!AdMob){ pushAdLog('AdMobプラグインが見つかりません（window.Capacitor.Plugins.AdMob が未登録）'); return; }
       try{
-        const { AdMob } = await import('@capacitor-community/admob');
-        pushAdLog('AdMobモジュール読み込み成功');
         await AdMob.initialize({ requestTrackingAuthorization: false, initializeForTesting: false });
         pushAdLog('AdMob.initialize() 成功');
         await showBanner();
@@ -397,13 +401,14 @@
     }
     async function showBanner(){
       if(!isNativeApp()) return;
+      const AdMob = getAdMobPlugin();
+      if(!AdMob){ pushAdLog('バナー: AdMobプラグインが見つかりません'); return; }
       try{
         pushAdLog('バナー広告リクエスト送信 adId=' + AD_UNIT_BANNER);
-        const { AdMob, BannerAdPosition, BannerAdSize } = await import('@capacitor-community/admob');
         await AdMob.showBanner({
           adId: AD_UNIT_BANNER,
-          adSize: BannerAdSize.ADAPTIVE_BANNER,
-          position: BannerAdPosition.BOTTOM_CENTER,
+          adSize: 'ADAPTIVE_BANNER',
+          position: 'BOTTOM_CENTER',
         });
         document.body.classList.add('has-native-banner');
         pushAdLog('バナー広告 showBanner() 成功（表示リクエスト完了）');
@@ -411,8 +416,9 @@
     }
     async function prepareInterstitial(){
       if(!isNativeApp()) return;
+      const AdMob = getAdMobPlugin();
+      if(!AdMob) return;
       try{
-        const { AdMob } = await import('@capacitor-community/admob');
         await AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL });
         interstitialReady = true;
         pushAdLog('インタースティシャル prepare 成功');
@@ -422,8 +428,9 @@
       if(!isNativeApp()) return;
       ringStopCount++;
       if(ringStopCount % INTERSTITIAL_EVERY_N_STOPS !== 0) return;
+      const AdMob = getAdMobPlugin();
+      if(!AdMob) return;
       try{
-        const { AdMob } = await import('@capacitor-community/admob');
         if(interstitialReady){
           await AdMob.showInterstitial();
           pushAdLog('インタースティシャル showInterstitial() 成功');
