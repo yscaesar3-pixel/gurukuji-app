@@ -337,6 +337,15 @@
       </div>
       <input type="file" id="importFileInput" accept="application/json" />
     </div>
+
+    <div class="card">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;">
+        広告状況（デバッグ表示）
+        <button class="small-btn" id="copyAdLogBtn" style="font-weight:400;letter-spacing:0;">📋 コピー</button>
+      </h2>
+      <p class="force-note">実機での広告の読み込み状況をそのまま表示しています。うまく広告が出ないときの確認用です。</p>
+      <pre id="adDebugLog" style="white-space:pre-wrap; font-size:11px; line-height:1.6; color:var(--muted); background:var(--panel-alt); border:1px solid var(--line); border-radius:10px; padding:10px; max-height:260px; overflow-y:auto; margin:0; font-family:monospace;">（まだログはありません）</pre>
+    </div>
   </div>
 </div>
 
@@ -375,17 +384,21 @@
     let interstitialReady = false;
 
     async function init(){
-      if(!isNativeApp()) return;
+      pushAdLog(`init開始 native=${isNativeApp()} platform=${window.Capacitor && window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : '不明'}`);
+      if(!isNativeApp()){ pushAdLog('ネイティブ環境ではないため広告処理をスキップ'); return; }
       try{
         const { AdMob } = await import('@capacitor-community/admob');
+        pushAdLog('AdMobモジュール読み込み成功');
         await AdMob.initialize({ requestTrackingAuthorization: false, initializeForTesting: false });
+        pushAdLog('AdMob.initialize() 成功');
         await showBanner();
         await prepareInterstitial();
-      }catch(e){ console.warn('[AdManager] init failed:', e); }
+      }catch(e){ pushAdLog('init失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
     }
     async function showBanner(){
       if(!isNativeApp()) return;
       try{
+        pushAdLog('バナー広告リクエスト送信 adId=' + AD_UNIT_BANNER);
         const { AdMob, BannerAdPosition, BannerAdSize } = await import('@capacitor-community/admob');
         await AdMob.showBanner({
           adId: AD_UNIT_BANNER,
@@ -393,7 +406,8 @@
           position: BannerAdPosition.BOTTOM_CENTER,
         });
         document.body.classList.add('has-native-banner');
-      }catch(e){ console.warn('[AdManager] banner failed:', e); }
+        pushAdLog('バナー広告 showBanner() 成功（表示リクエスト完了）');
+      }catch(e){ pushAdLog('バナー広告失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
     }
     async function prepareInterstitial(){
       if(!isNativeApp()) return;
@@ -401,7 +415,8 @@
         const { AdMob } = await import('@capacitor-community/admob');
         await AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL });
         interstitialReady = true;
-      }catch(e){ interstitialReady = false; console.warn('[AdManager] interstitial prepare failed:', e); }
+        pushAdLog('インタースティシャル prepare 成功');
+      }catch(e){ interstitialReady = false; pushAdLog('インタースティシャル prepare失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
     }
     async function notifyRingStopped(){
       if(!isNativeApp()) return;
@@ -411,9 +426,12 @@
         const { AdMob } = await import('@capacitor-community/admob');
         if(interstitialReady){
           await AdMob.showInterstitial();
+          pushAdLog('インタースティシャル showInterstitial() 成功');
           interstitialReady = false;
+        } else {
+          pushAdLog('インタースティシャル未準備のため表示スキップ');
         }
-      }catch(e){ console.warn('[AdManager] interstitial show failed:', e); }
+      }catch(e){ pushAdLog('インタースティシャル表示失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
       finally{
         prepareInterstitial(); // 次回に備えて先読みしておく
       }
@@ -421,6 +439,20 @@
     return { init, showBanner, notifyRingStopped };
   })();
   document.addEventListener('DOMContentLoaded', ()=> AdManager.init());
+
+  // ---------- ad debug log (Macなしでも実機で状況を確認できるように画面表示) ----------
+  const adLogLines = [];
+  function pushAdLog(msg){
+    const time = new Date().toLocaleTimeString('ja-JP', { hour12:false });
+    adLogLines.push(`[${time}] ${msg}`);
+    if(adLogLines.length > 30) adLogLines.shift();
+    renderAdLog();
+  }
+  function renderAdLog(){
+    const el = document.getElementById('adDebugLog');
+    if(!el) return;
+    el.textContent = adLogLines.join('\n') || '（まだログはありません）';
+  }
 
   function showToast(msg){
     const t = document.getElementById('toast');
@@ -530,7 +562,7 @@
     document.getElementById('settingsPage').classList.toggle('active', page==='settings');
     document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.page===page));
     if(page==='play'){ renderWheel(); renderSideControls(); updateHubVisual(); renderResults(); }
-    else { renderRingsList(); renderChips(); syncAddRingBtn(); renderPresetList(); }
+    else { renderRingsList(); renderChips(); syncAddRingBtn(); renderPresetList(); renderAdLog(); }
   }
   document.querySelectorAll('.nav-btn').forEach(b=>{
     b.addEventListener('click', ()=>{ location.hash = '#/' + b.dataset.page; });
@@ -1031,6 +1063,28 @@
   });
 
   // ---------- init ----------
+  document.getElementById('copyAdLogBtn').addEventListener('click', ()=>{
+    const text = adLogLines.join('\n') || '（まだログはありません）';
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(()=> showToast('コピーしました。')).catch(()=> fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }catch(e){ fallbackCopy(text); }
+  });
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try{ document.execCommand('copy'); showToast('コピーしました。'); }
+    catch(e){ showToast('コピーできませんでした。'); }
+    document.body.removeChild(ta);
+  }
+
   if(!location.hash) location.hash = '#/play';
   showPage();
 })();
