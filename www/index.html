@@ -337,15 +337,6 @@
       </div>
       <input type="file" id="importFileInput" accept="application/json" />
     </div>
-
-    <div class="card">
-      <h2 style="display:flex;align-items:center;justify-content:space-between;">
-        広告状況（デバッグ表示）
-        <button class="small-btn" id="copyAdLogBtn" style="font-weight:400;letter-spacing:0;">📋 コピー</button>
-      </h2>
-      <p class="force-note">実機での広告の読み込み状況をそのまま表示しています。うまく広告が出ないときの確認用です。</p>
-      <pre id="adDebugLog" style="white-space:pre-wrap; font-size:11px; line-height:1.6; color:var(--muted); background:var(--panel-alt); border:1px solid var(--line); border-radius:10px; padding:10px; max-height:260px; overflow-y:auto; margin:0; font-family:monospace;">（まだログはありません）</pre>
-    </div>
   </div>
 </div>
 
@@ -380,7 +371,7 @@
 
   const AdManager = (function(){
     let ringStopCount = 0;
-    const INTERSTITIAL_EVERY_N_STOPS = 18; // 目安：フルスピン6回に1回程度
+    const INTERSTITIAL_EVERY_N_STOPS = 24; // 目安：フルスピン4回に1回程度
     let interstitialReady = false;
 
     function getAdMobPlugin(){
@@ -388,31 +379,27 @@
     }
 
     async function init(){
-      pushAdLog(`init開始 native=${isNativeApp()} platform=${window.Capacitor && window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : '不明'}`);
-      if(!isNativeApp()){ pushAdLog('ネイティブ環境ではないため広告処理をスキップ'); return; }
+      if(!isNativeApp()) return;
       const AdMob = getAdMobPlugin();
-      if(!AdMob){ pushAdLog('AdMobプラグインが見つかりません（window.Capacitor.Plugins.AdMob が未登録）'); return; }
+      if(!AdMob) return;
       try{
         await AdMob.initialize({ requestTrackingAuthorization: false, initializeForTesting: false });
-        pushAdLog('AdMob.initialize() 成功');
         await showBanner();
         await prepareInterstitial();
-      }catch(e){ pushAdLog('init失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
+      }catch(e){ console.warn('[AdManager] init failed:', e); }
     }
     async function showBanner(){
       if(!isNativeApp()) return;
       const AdMob = getAdMobPlugin();
-      if(!AdMob){ pushAdLog('バナー: AdMobプラグインが見つかりません'); return; }
+      if(!AdMob) return;
       try{
-        pushAdLog('バナー広告リクエスト送信 adId=' + AD_UNIT_BANNER);
         await AdMob.showBanner({
           adId: AD_UNIT_BANNER,
           adSize: 'ADAPTIVE_BANNER',
           position: 'BOTTOM_CENTER',
         });
         document.body.classList.add('has-native-banner');
-        pushAdLog('バナー広告 showBanner() 成功（表示リクエスト完了）');
-      }catch(e){ pushAdLog('バナー広告失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
+      }catch(e){ console.warn('[AdManager] banner failed:', e); }
     }
     async function prepareInterstitial(){
       if(!isNativeApp()) return;
@@ -421,8 +408,7 @@
       try{
         await AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL });
         interstitialReady = true;
-        pushAdLog('インタースティシャル prepare 成功');
-      }catch(e){ interstitialReady = false; pushAdLog('インタースティシャル prepare失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
+      }catch(e){ interstitialReady = false; console.warn('[AdManager] interstitial prepare failed:', e); }
     }
     async function notifyRingStopped(){
       if(!isNativeApp()) return;
@@ -433,12 +419,9 @@
       try{
         if(interstitialReady){
           await AdMob.showInterstitial();
-          pushAdLog('インタースティシャル showInterstitial() 成功');
           interstitialReady = false;
-        } else {
-          pushAdLog('インタースティシャル未準備のため表示スキップ');
         }
-      }catch(e){ pushAdLog('インタースティシャル表示失敗: ' + (e && e.message ? e.message : JSON.stringify(e))); }
+      }catch(e){ console.warn('[AdManager] interstitial show failed:', e); }
       finally{
         prepareInterstitial(); // 次回に備えて先読みしておく
       }
@@ -446,20 +429,6 @@
     return { init, showBanner, notifyRingStopped };
   })();
   document.addEventListener('DOMContentLoaded', ()=> AdManager.init());
-
-  // ---------- ad debug log (Macなしでも実機で状況を確認できるように画面表示) ----------
-  const adLogLines = [];
-  function pushAdLog(msg){
-    const time = new Date().toLocaleTimeString('ja-JP', { hour12:false });
-    adLogLines.push(`[${time}] ${msg}`);
-    if(adLogLines.length > 30) adLogLines.shift();
-    renderAdLog();
-  }
-  function renderAdLog(){
-    const el = document.getElementById('adDebugLog');
-    if(!el) return;
-    el.textContent = adLogLines.join('\n') || '（まだログはありません）';
-  }
 
   function showToast(msg){
     const t = document.getElementById('toast');
@@ -569,7 +538,7 @@
     document.getElementById('settingsPage').classList.toggle('active', page==='settings');
     document.querySelectorAll('.nav-btn').forEach(b=> b.classList.toggle('active', b.dataset.page===page));
     if(page==='play'){ renderWheel(); renderSideControls(); updateHubVisual(); renderResults(); }
-    else { renderRingsList(); renderChips(); syncAddRingBtn(); renderPresetList(); renderAdLog(); }
+    else { renderRingsList(); renderChips(); syncAddRingBtn(); renderPresetList(); }
   }
   document.querySelectorAll('.nav-btn').forEach(b=>{
     b.addEventListener('click', ()=>{ location.hash = '#/' + b.dataset.page; });
@@ -912,7 +881,19 @@
     const ring = rings.find(r=>r.id===ringId);
     if(!ring) return;
     if(action==='add-item'){ ring.items.push({text:'新しい項目', weight:1}); renderRingsList(); }
-    else if(action==='remove-item'){ const idx=+btn.dataset.idx; if(ring.items.length>2){ ring.items.splice(idx,1); if(ring.forceIndex===idx) ring.forceIndex=null; renderRingsList(); } }
+    else if(action==='remove-item'){
+      const idx=+btn.dataset.idx;
+      if(ring.items.length>2){
+        ring.items.splice(idx,1);
+        if(ring.forceIndex !== null && ring.forceIndex !== undefined){
+          if(ring.forceIndex === idx) ring.forceIndex = null;
+          else if(ring.forceIndex > idx) ring.forceIndex -= 1;
+        }
+        ring.lastIndex = undefined;
+        ring.usedSet = undefined;
+        renderRingsList();
+      }
+    }
     else if(action==='remove-ring'){ if(rings.length>1){ rings = rings.filter(r=>r.id!==ringId); renderRingsList(); syncAddRingBtn(); } }
     else if(action==='move-in'){ const i=rings.findIndex(r=>r.id===ringId); if(i>0){ [rings[i-1],rings[i]]=[rings[i],rings[i-1]]; renderRingsList(); } }
     else if(action==='move-out'){ const i=rings.findIndex(r=>r.id===ringId); if(i<rings.length-1){ [rings[i+1],rings[i]]=[rings[i],rings[i+1]]; renderRingsList(); } }
@@ -1070,28 +1051,6 @@
   });
 
   // ---------- init ----------
-  document.getElementById('copyAdLogBtn').addEventListener('click', ()=>{
-    const text = adLogLines.join('\n') || '（まだログはありません）';
-    try{
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(()=> showToast('コピーしました。')).catch(()=> fallbackCopy(text));
-      } else {
-        fallbackCopy(text);
-      }
-    }catch(e){ fallbackCopy(text); }
-  });
-  function fallbackCopy(text){
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.focus(); ta.select();
-    try{ document.execCommand('copy'); showToast('コピーしました。'); }
-    catch(e){ showToast('コピーできませんでした。'); }
-    document.body.removeChild(ta);
-  }
-
   if(!location.hash) location.hash = '#/play';
   showPage();
 })();
